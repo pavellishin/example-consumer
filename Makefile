@@ -4,7 +4,7 @@ GITHUB_ORG="pactflow"
 PACTICIPANT := "pactflow-example-consumer"
 GITHUB_WEBHOOK_UUID := "04510dc1-7f0a-4ed2-997d-114bfa86f8ad"
 PACT_CHANGED_WEBHOOK_UUID := "8e49caaa-0498-4cc1-9368-325de0812c8a"
-PACT_CLI="docker run --rm -v ${PWD}:${PWD} -e PACT_BROKER_BASE_URL -e PACT_BROKER_TOKEN pactfoundation/pact-cli:latest"
+# PACT_CLI="docker run --rm -v ${PWD}:${PWD} -e PACT_BROKER_BASE_URL -e PACT_BROKER_TOKEN pactfoundation/pact-cli:latest"
 
 # Only deploy from master
 ifeq ($(TRAVIS_BRANCH),master)
@@ -32,7 +32,9 @@ fake_ci: .env
 	make ci
 
 publish_pacts: .env
-	@"${PACT_CLI}" publish ${PWD}/pacts --consumer-app-version ${TRAVIS_COMMIT} --tag ${TRAVIS_BRANCH}
+	npx pact-broker publish ${PWD}/pacts \
+	  --consumer-app-version ${TRAVIS_COMMIT} \
+	  --tag ${TRAVIS_BRANCH}
 
 ## =====================
 ## Build/test tasks
@@ -51,7 +53,9 @@ no_deploy:
 	@echo "Not deploying as not on master branch"
 
 can_i_deploy: .env
-	@"${PACT_CLI}" broker can-i-deploy \
+	npx pact-broker can-i-deploy \
+	  --broker-base-url ${PACT_BROKER_BASE_URL} \
+	  --broker-token=${PACT_BROKER_TOKEN} \
 	  --pacticipant ${PACTICIPANT} \
 	  --version ${TRAVIS_COMMIT} \
 	  --to prod \
@@ -62,7 +66,12 @@ deploy_app:
 	@echo "Deploying to prod"
 
 tag_as_prod: .env
-	@"${PACT_CLI}" broker create-version-tag --pacticipant ${PACTICIPANT} --version ${TRAVIS_COMMIT} --tag prod
+	npx pact-broker create-version-tag \
+	  --broker-base-url ${PACT_BROKER_BASE_URL} \
+	  --broker-token=${PACT_BROKER_TOKEN} \
+	  --pacticipant ${PACTICIPANT} \
+	  --version ${TRAVIS_COMMIT} \
+	  --tag prod
 
 ## =====================
 ## Pactflow set up tasks
@@ -80,10 +89,10 @@ create_github_token_secret:
 # This webhook will update the Github commit status for this commit
 # so that any PRs will get a status that shows what the status of
 # the pact is.
-create_or_update_github_webhook:
-	@"${PACT_CLI}" \
-	  broker create-or-update-webhook \
+create_or_update_github_webhook: .env
+	npx pact-broker create-or-update-webhook \
 	  'https://api.github.com/repos/pactflow/example-consumer/statuses/$${pactbroker.consumerVersionNumber}' \
+	  --broker-base-url ${PACT_BROKER_BASE_URL} \
 	  --header 'Content-Type: application/json' 'Accept: application/vnd.github.v3+json' 'Authorization: token $${user.githubCommitStatusToken}' \
 	  --request POST \
 	  --data @${PWD}/pactflow/github-commit-status-webhook.json \
