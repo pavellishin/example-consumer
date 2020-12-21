@@ -46,6 +46,37 @@ describe('API Pact test', () => {
       expect(product).toStrictEqual(expectedProduct);
     });
 
+    test('ID 100 exists', async () => {
+      // Arrange
+      const expectedProduct = { id: '100', type: 'CREDIT_CARD', name: 'ID ONE HUNDRED', color: 'bleen' }
+
+      await mockProvider.addInteraction({
+        state: 'a product with ID 100 exists',
+        uponReceiving: 'a request to get a product',
+        withRequest: {
+          method: 'GET',
+          path: '/product/100',
+          headers: {
+            Authorization: like('Bearer 2019-01-14T11:34:18.045Z'),
+          },
+        },
+        willRespondWith: {
+          status: 200,
+          headers: {
+            'Content-Type': regex({generate: 'application/json; charset=utf-8', matcher: 'application/json;?.*'}),
+          },
+          body: like(expectedProduct),
+        },
+      });
+
+      // Act
+      const api = new API(mockProvider.mockService.baseUrl);
+      const product = await api.getProduct('100');
+
+      // assert that we got the expected response
+      expect(product).toStrictEqual(expectedProduct);
+    });
+
     test('product does not exist', async () => {
 
         // set up Pact interactions
